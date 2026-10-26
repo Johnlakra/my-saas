@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Makes "a human merges" a rule GitHub enforces, not a habit:
-# PRs into main need green CI and one approving review. Requires the gh CLI, logged in as a repo admin.
-# Usage: ./scripts/protect-main.sh owner/repo
+# PRs into master need green CI and one approving review. Requires the gh CLI, logged in as a repo admin.
+# Usage: ./scripts/protect-master.sh owner/repo
 set -euo pipefail
 REPO="${1:?usage: $0 owner/repo}"
 
-gh api -X PUT "repos/${REPO}/branches/main/protection" \
+gh api -X PUT "repos/${REPO}/branches/master/protection" \
   -H "Accept: application/vnd.github+json" \
   --input - <<'JSON'
 {
@@ -17,4 +17,4 @@ gh api -X PUT "repos/${REPO}/branches/main/protection" \
   "allow_deletions": false
 }
 JSON
-echo "main is protected on ${REPO}: CI must pass and a human must approve."
+echo "master is protected on ${REPO}: CI must pass and a human must approve."
