@@ -1,0 +1,23 @@
+# Copy to your VPS with a .env next to it. Replace OWNER/NAME with your lowercase GitHub owner and repo name.
+services:
+  mysql:
+    image: mysql:8.4
+    env_file: .env
+    volumes: [mysql-data:/var/lib/mysql]
+    restart: unless-stopped
+
+  backend:
+    image: ghcr.io/OWNER/NAME-backend:latest
+    env_file: .env
+    ports: ["127.0.0.1:8000:8000"]
+    depends_on: [mysql]
+    restart: unless-stopped
+
+  frontend:
+    image: ghcr.io/OWNER/NAME-frontend:latest
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on: [backend]
+    restart: unless-stopped
+
+volumes:
+  mysql-data:

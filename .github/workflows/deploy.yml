@@ -1,0 +1,50 @@
+name: Deploy
+
+# Runs only after a human merges to main.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        run: |
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          NAME=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
+          docker build -t ghcr.io/$OWNER/$NAME-backend:latest -t ghcr.io/$OWNER/$NAME-backend:${{ github.sha }} backend
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL="${{ vars.PUBLIC_API_URL }}" \
+            --build-arg NEXT_PUBLIC_APP_NAME="${{ vars.APP_NAME }}" \
+            -t ghcr.io/$OWNER/$NAME-frontend:latest -t ghcr.io/$OWNER/$NAME-frontend:${{ github.sha }} frontend
+          docker push --all-tags ghcr.io/$OWNER/$NAME-backend
+          docker push --all-tags ghcr.io/$OWNER/$NAME-frontend
+
+  server:
+    needs: images
+    runs-on: ubuntu-latest
+    # Set repo variable DEPLOY_ENABLED=true once the VPS secrets below exist.
+    if: vars.DEPLOY_ENABLED == 'true'
+    steps:
+      - name: Pull and restart on the VPS
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.DEPLOY_DIR || '~/app' }}
+        run: |
+          install -m 600 /dev/null key && echo "$SSH_KEY" > key
+          ssh -i key -o StrictHostKeyChecking=accept-new "$USER@$HOST" \
+            "cd $APP_DIR && docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d"
